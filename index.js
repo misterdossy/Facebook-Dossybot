@@ -46,6 +46,10 @@ let app = http.createServer(async (req, res) => {
                 const jsonData = JSON.parse(rawJSONString);
 
                 console.log(jsonData);
+
+                try {
+                    console.log(jsonData.entry[0].messaging[0]);
+                } catch {}
             }
 
             res.writeHead(200, { "Content-Type": "text/html" });
@@ -74,10 +78,5 @@ wss.on('connection', (ws) => {
         wss.clients.forEach((client) => {
             client.send(msg);
         });
-
-        try {
-            let msgObj = JSON.parse(msg);
-            console.log(msgObj.entry[0].messaging[0]);
-        } catch {}
     });
 });
