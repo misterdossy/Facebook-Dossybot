@@ -1,27 +1,78 @@
-const { Client } = require('facebook-messenjs');
+const http = require("http");
+const url = require('url');
+const { Server } = require('ws');
 
-const bot = new Client({
-    botToken: "EAAGdrJ1X8KUBAIMXFIs8iyj5tRLKip2eXOszCv1jFPcuwvkwgTZAZBZAL08XSlgyier6AZAqpe49iCYMF0HbSDID28J2DDVJouZBZAbqraZC9d6DnDjQYdkcvT0zqjlF2arpgkdBO26d7oHdvXYzyQThc1r4ZAgnhnUKoGaCWSyn4aidMSZA6MpFv",
-    verifyToken: "abcdef",
-    appID: "454839676432549",
-    appSecret: "5108a5c57664bdf8355aa93093952c1f"
-});
+let readJSONBody = (req) => {
+    return new Promise((resolve, reject) => {
+        try {
+            let body = "";
+            req.on("data", (chunk) => { body += chunk.toString(); });
+            req.on("end", () => { resolve(body); });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
 
-// Allows Facebook to know that you set the URL of the bot properly
-bot.on('webhookVerify', verification => {
-    if (verification.success) {
-        console.log("Webhook verified with Facebook successfully!");
-    } else {
-        console.log("Webhook verified with Facebook failed! ;-;");
+const sendUnauthorized = (res) => {
+    res.writeHead(403, { "Content-Type": "text/html" });
+    res.end("Unauthorized.");
+}
+
+let app = http.createServer(async (req, res) => {
+    const reqURL = url.parse(req.url, true);
+    if (reqURL.pathname === "/") {
+        if (req.method === "GET") {
+            if (("hub.challenge" in reqURL.query) && ("hub.verify_token" in reqURL.query)) {
+                if (reqURL.query["hub.verify_token"] == "abcdef") {
+                    res.writeHead(200, { "Content-Type": "text/html" });
+                    res.end(reqURL.query["hub.challenge"]);
+                } else {
+                    sendUnauthorized(res);
+                }
+            } else {
+                sendUnauthorized(res);
+            }
+
+            return;
+        } else if (req.method === "POST") {
+            if (!("x-hub-signature" in req.headers)) {
+                sendUnauthorized(res);
+                return;
+            }
+
+            if (req.readable) {
+                const rawJSONString = await readJSONBody(req);
+                const jsonData = JSON.parse(rawJSONString);
+
+                console.log(jsonData);
+            }
+
+            res.writeHead(200, { "Content-Type": "text/html" });
+            res.end("awts gege");
+        }
     }
 });
 
-// Processes messages from people who message the Facebook page
-bot.on("messages", message => {
-    message.sender.send("Hi!");
-});
+let port = process.env.PORT || 3000
+app.listen(port, () => console.log(`Listening at http://localhost:${port}`));
 
-let port = process.env.PORT || 3000;
-bot.listen(port, () => {
-    console.log(`Facebook Messenger chatbot listening at http://localhost:${bot.port}`);
-})
+const wss = new Server({ server: app });
+
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+
+    ws.on('close', () => console.log('Client disconnected'));
+    ws.on('message', (data, isBinary) => {
+        let msg = data.toString();
+
+        // if (!msg.includes('{')) { return; }
+        // let msgObj = JSON.parse(msg);
+        // console.log(msgObj);
+
+        // if (!msgObj.action) { return; }
+        wss.clients.forEach((client) => {
+            client.send(msg);
+        });
+    });
+});
