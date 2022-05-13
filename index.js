@@ -77,6 +77,6 @@ wss.on('connection', (ws) => {
 
         if (!msg.includes('{')) { return; }
         let msgObj = JSON.parse(msg);
-        console.log(msgObj.entry.messaging[0]);
+        console.log(msgObj.entry[0].messaging[0]);
     });
 });
